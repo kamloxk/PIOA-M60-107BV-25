@@ -1,4 +1,5 @@
-from src.db.tui import main_loop
+from src.db.tui import LibraryApp
 
 if __name__ == "__main__":
-    main_loop()
+    app = LibraryApp()
+    app.run()

@@ -1,222 +1,277 @@
-from src.db.backend.memory import (
-    create_record, select_record, update_record, 
-    delete_record, get_all_tables, create_table
+from src.db.backend.memory import Database
+from src.db.backend.errors import (
+    TableNotFoundError,
+    RecordNotFoundError,
+    DuplicateTableError,
+    ValidationError
 )
 
-def print_menu():
-    print("\n=== БАЗА ДАННЫХ БИБЛИОТЕКИ ===")
-    print("1. Показать все книги")
-    print("2. Найти книгу")
-    print("3. Добавить книгу")
-    print("4. Изменить книгу")
-    print("5. Удалить книгу")
-    print("6. Создать новую таблицу")
-    print("7. Показать все таблицы")
-    print("0. Выход")
 
-def print_books(books):
-    if not books:
-        print("Книги не найдены")
-        return
+class Menu:
+    def __init__(self, title, options):
+        self.title = title
+        self.options = options
     
-    print("\n--- СПИСОК КНИГ ---")
-    for book in books:
-        print(f"ID: {book['id']}")
-        print(f"Название: {book['title']}")
-        print(f"Автор: {book['author']}")
-        print(f"Год: {book['year']}")
-        print(f"Жанр: {book['genre']}")
-        print()
-
-def get_input(prompt):
-    try:
-        return input(prompt).strip()
-    except EOFError:
-        return ""
-
-def get_number_input(prompt):
-    while True:
+    def display(self):
+        print(f"\n=== {self.title} ===")
+        for key, value in self.options.items():
+            print(f"{key}. {value}")
+    
+    def get_choice(self):
         try:
-            return int(input(prompt).strip())
-        except ValueError:
-            print("Ошибка: введите число")
+            return input("Выберите действие: ").strip()
         except EOFError:
-            return None
+            return "0"
 
-def show_all_books():
-    try:
-        books = select_record('books')
-        print_books(books)
-    except ValueError as e:
-        print(f"Ошибка: {e}")
 
-def find_book():
-    print("\n--- ПОИСК КНИГИ ---")
-    print("По каким параметрам искать?")
-    print("1. По названию")
-    print("2. По автору")
-    print("3. По году")
-    print("4. По жанру")
+class LibraryApp:
+    def __init__(self):
+        self.db = Database()
+        self.db.create_table('books')
+        self.main_menu = Menu(
+            "БАЗА ДАННЫХ БИБЛИОТЕКИ",
+            {
+                "1": "Показать все книги",
+                "2": "Найти книгу",
+                "3": "Добавить книгу",
+                "4": "Изменить книгу",
+                "5": "Удалить книгу",
+                "6": "Сортировать книги",
+                "7": "Создать таблицу",
+                "8": "Показать таблицы",
+                "0": "Выход"
+            }
+        )
     
-    choice = get_number_input("Выбор: ")
+    def run(self):
+        while True:
+            self.main_menu.display()
+            choice = self.main_menu.get_choice()
+            
+            if choice == "1":
+                self.show_all_books()
+            elif choice == "2":
+                self.find_book()
+            elif choice == "3":
+                self.add_book()
+            elif choice == "4":
+                self.edit_book()
+            elif choice == "5":
+                self.remove_book()
+            elif choice == "6":
+                self.sort_books()
+            elif choice == "7":
+                self.create_table_ui()
+            elif choice == "8":
+                self.show_tables()
+            elif choice == "0":
+                print("До свидания!")
+                break
+            else:
+                print("Неверный выбор")
     
-    filters = {}
+    def print_books(self, books):
+        if not books:
+            print("Книги не найдены")
+            return
+        print("\n--- СПИСОК КНИГ ---")
+        for book in books:
+            print(f"ID: {book['id']}")
+            print(f"Название: {book['title']}")
+            print(f"Автор: {book['author']}")
+            print(f"Год: {book['year']}")
+            print(f"Жанр: {book['genre']}")
+            print()
     
-    if choice == 1:
-        title = get_input("Введите название: ")
-        if title:
-            filters['title'] = title
-    elif choice == 2:
-        author = get_input("Введите автора: ")
-        if author:
-            filters['author'] = author
-    elif choice == 3:
-        year = get_number_input("Введите год: ")
-        if year:
-            filters['year'] = year
-    elif choice == 4:
-        genre = get_input("Введите жанр: ")
-        if genre:
-            filters['genre'] = genre
-    else:
-        print("Неверный выбор")
-        return
+    def get_input(self, prompt):
+        try:
+            return input(prompt).strip()
+        except EOFError:
+            return ""
     
-    try:
-        books = select_record('books', filters)
-        print_books(books)
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-def add_book():
-    print("\n--- ДОБАВЛЕНИЕ КНИГИ ---")
+    def get_number(self, prompt):
+        while True:
+            try:
+                return int(input(prompt).strip())
+            except ValueError:
+                print("Ошибка: введите число")
+            except EOFError:
+                return None
     
-    title = get_input("Название: ")
-    if not title:
-        print("Ошибка: название обязательно")
-        return
+    def show_all_books(self):
+        try:
+            books = self.db.select_records('books')
+            self.print_books(books)
+        except TableNotFoundError as e:
+            print(f"Ошибка: {e}")
     
-    author = get_input("Автор: ")
-    if not author:
-        print("Ошибка: автор обязателен")
-        return
-    
-    year = get_number_input("Год издания: ")
-    if year is None:
-        print("Ошибка: год обязателен")
-        return
-    
-    genre = get_input("Жанр: ")
-    if not genre:
-        print("Ошибка: жанр обязателен")
-        return
-    
-    try:
-        book = create_record('books', {
-            'title': title,
-            'author': author,
-            'year': year,
-            'genre': genre
-        })
-        print(f"Книга добавлена с ID: {book['id']}")
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-def edit_book():
-    print("\n--- ИЗМЕНЕНИЕ КНИГИ ---")
-    
-    book_id = get_number_input("Введите ID книги: ")
-    if book_id is None:
-        return
-    
-    print("Что изменить?")
-    print("1. Название")
-    print("2. Автор")
-    print("3. Год")
-    print("4. Жанр")
-    
-    choice = get_number_input("Выбор: ")
-    
-    if choice == 1:
-        field = 'title'
-        new_value = get_input("Новое название: ")
-    elif choice == 2:
-        field = 'author'
-        new_value = get_input("Новый автор: ")
-    elif choice == 3:
-        field = 'year'
-        new_value = get_number_input("Новый год: ")
-    elif choice == 4:
-        field = 'genre'
-        new_value = get_input("Новый жанр: ")
-    else:
-        print("Неверный выбор")
-        return
-    
-    if new_value is None or new_value == "":
-        print("Ошибка: значение не может быть пустым")
-        return
-    
-    try:
-        updated = update_record('books', book_id, {field: new_value})
-        print("Книга обновлена")
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-def remove_book():
-    print("\n--- УДАЛЕНИЕ КНИГИ ---")
-    
-    book_id = get_number_input("Введите ID книги: ")
-    if book_id is None:
-        return
-    
-    try:
-        deleted = delete_record('books', book_id)
-        print(f"Книга '{deleted['title']}' удалена")
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-def create_new_table():
-    print("\n--- СОЗДАНИЕ НОВОЙ ТАБЛИЦЫ ---")
-    
-    table_name = get_input("Введите имя таблицы: ")
-    if not table_name:
-        print("Ошибка: имя таблицы не может быть пустым")
-        return
-    
-    try:
-        create_table(table_name)
-        print(f"Таблица '{table_name}' создана")
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-def show_all_tables():
-    print("\n--- ТАБЛИЦЫ В БАЗЕ ДАННЫХ ---")
-    tables = get_all_tables()
-    for table in tables:
-        print(f"- {table}")
-
-def main_loop():
-    while True:
-        print_menu()
-        choice = get_number_input("Выберите действие: ")
+    def find_book(self):
+        print("\n--- ПОИСК КНИГИ ---")
+        print("1. По названию")
+        print("2. По автору")
+        print("3. По году")
+        print("4. По жанру")
+        
+        choice = self.get_number("Выбор: ")
+        filters = {}
         
         if choice == 1:
-            show_all_books()
+            value = self.get_input("Введите название: ")
+            if value:
+                filters['title'] = value
         elif choice == 2:
-            find_book()
+            value = self.get_input("Введите автора: ")
+            if value:
+                filters['author'] = value
         elif choice == 3:
-            add_book()
+            value = self.get_number("Введите год: ")
+            if value:
+                filters['year'] = value
         elif choice == 4:
-            edit_book()
-        elif choice == 5:
-            remove_book()
-        elif choice == 6:
-            create_new_table()
-        elif choice == 7:
-            show_all_tables()
-        elif choice == 0:
-            print("До свидания!")
-            break
+            value = self.get_input("Введите жанр: ")
+            if value:
+                filters['genre'] = value
         else:
-            print("Неверный выбор, попробуйте снова")
+            print("Неверный выбор")
+            return
+        
+        try:
+            books = self.db.select_records('books', filters)
+            self.print_books(books)
+        except TableNotFoundError as e:
+            print(f"Ошибка: {e}")
+    
+    def add_book(self):
+        print("\n--- ДОБАВЛЕНИЕ КНИГИ ---")
+        
+        title = self.get_input("Название: ")
+        if not title:
+            print("Ошибка: название обязательно")
+            return
+        
+        author = self.get_input("Автор: ")
+        if not author:
+            print("Ошибка: автор обязателен")
+            return
+        
+        year = self.get_number("Год издания: ")
+        if year is None:
+            print("Ошибка: год обязателен")
+            return
+        
+        genre = self.get_input("Жанр: ")
+        if not genre:
+            print("Ошибка: жанр обязателен")
+            return
+        
+        try:
+            book = self.db.create_record('books', {
+                'title': title,
+                'author': author,
+                'year': year,
+                'genre': genre
+            })
+            print(f"Книга добавлена с ID: {book.id}")
+        except (TableNotFoundError, ValidationError) as e:
+            print(f"Ошибка: {e}")
+    
+    def edit_book(self):
+        print("\n--- ИЗМЕНЕНИЕ КНИГИ ---")
+        
+        book_id = self.get_number("Введите ID книги: ")
+        if book_id is None:
+            return
+        
+        print("Что изменить?")
+        print("1. Название")
+        print("2. Автор")
+        print("3. Год")
+        print("4. Жанр")
+        
+        choice = self.get_number("Выбор: ")
+        
+        if choice == 1:
+            field = 'title'
+            new_value = self.get_input("Новое название: ")
+        elif choice == 2:
+            field = 'author'
+            new_value = self.get_input("Новый автор: ")
+        elif choice == 3:
+            field = 'year'
+            new_value = self.get_number("Новый год: ")
+        elif choice == 4:
+            field = 'genre'
+            new_value = self.get_input("Новый жанр: ")
+        else:
+            print("Неверный выбор")
+            return
+        
+        if new_value is None or new_value == "":
+            print("Ошибка: значение не может быть пустым")
+            return
+        
+        try:
+            self.db.update_record('books', book_id, {field: new_value})
+            print("Книга обновлена")
+        except (TableNotFoundError, RecordNotFoundError) as e:
+            print(f"Ошибка: {e}")
+    
+    def remove_book(self):
+        print("\n--- УДАЛЕНИЕ КНИГИ ---")
+        
+        book_id = self.get_number("Введите ID книги: ")
+        if book_id is None:
+            return
+        
+        try:
+            deleted = self.db.delete_record('books', book_id)
+            print(f"Книга '{deleted.data['title']}' удалена")
+        except (TableNotFoundError, RecordNotFoundError) as e:
+            print(f"Ошибка: {e}")
+    
+    def sort_books(self):
+        print("\n--- СОРТИРОВКА КНИГ ---")
+        print("По какому полю сортировать?")
+        print("1. Название")
+        print("2. Автор")
+        print("3. Год")
+        print("4. Жанр")
+        
+        field_choice = self.get_number("Выбор: ")
+        fields = {1: 'title', 2: 'author', 3: 'year', 4: 'genre'}
+        
+        if field_choice not in fields:
+            print("Неверный выбор")
+            return
+        
+        sort_by = fields[field_choice]
+        
+        print("Порядок сортировки?")
+        print("1. По возрастанию")
+        print("2. По убыванию")
+        
+        order_choice = self.get_number("Выбор: ")
+        order = 'asc' if order_choice == 1 else 'desc'
+        
+        try:
+            books = self.db.select_records('books', sort_by=sort_by, sort_order=order)
+            self.print_books(books)
+        except TableNotFoundError as e:
+            print(f"Ошибка: {e}")
+    
+    def create_table_ui(self):
+        print("\n--- СОЗДАНИЕ ТАБЛИЦЫ ---")
+        name = self.get_input("Имя таблицы: ")
+        if not name:
+            print("Ошибка: имя не может быть пустым")
+            return
+        try:
+            self.db.create_table(name)
+            print(f"Таблица '{name}' создана")
+        except DuplicateTableError as e:
+            print(f"Ошибка: {e}")
+    
+    def show_tables(self):
+        print("\n--- ТАБЛИЦЫ ---")
+        for table in self.db.list_tables():
+            print(f"- {table}")
