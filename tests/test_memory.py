@@ -21,12 +21,20 @@ class TestMemoryDatabase(unittest.TestCase):
         record_id = self.db.insert_record('books', {'title': 'Test', 'author': 'Author'})
         self.assertEqual(record_id, 1)
 
+    def test_insert_record_into_missing_table(self):
+        with self.assertRaises(TableNotFoundError):
+            self.db.insert_record('nonexistent', {'title': 'Test'})
+
     def test_select_records(self):
         self.db.create_table('books', ('title', 'author'))
         self.db.insert_record('books', {'title': 'Book1', 'author': 'Author1'})
         self.db.insert_record('books', {'title': 'Book2', 'author': 'Author2'})
         records = self.db.select_records('books')
         self.assertEqual(len(records), 2)
+
+    def test_select_records_from_missing_table(self):
+        with self.assertRaises(TableNotFoundError):
+            self.db.select_records('nonexistent')
 
     def test_select_with_filter(self):
         self.db.create_table('books', ('title', 'author'))
@@ -43,6 +51,10 @@ class TestMemoryDatabase(unittest.TestCase):
         records = self.db.select_records('books')
         self.assertEqual(records[0]['title'], 'New')
 
+    def test_update_record_from_missing_table(self):
+        with self.assertRaises(TableNotFoundError):
+            self.db.update_record('nonexistent', 1, {'title': 'Test'})
+
     def test_update_nonexistent_record(self):
         self.db.create_table('books', ('title', 'author'))
         with self.assertRaises(RecordNotFoundError):
@@ -55,6 +67,10 @@ class TestMemoryDatabase(unittest.TestCase):
         records = self.db.select_records('books')
         self.assertEqual(len(records), 0)
 
+    def test_delete_record_from_missing_table(self):
+        with self.assertRaises(TableNotFoundError):
+            self.db.delete_record('nonexistent', 1)
+
     def test_delete_nonexistent_record(self):
         self.db.create_table('books', ('title', 'author'))
         with self.assertRaises(RecordNotFoundError):
@@ -66,6 +82,13 @@ class TestMemoryDatabase(unittest.TestCase):
         self.db.create_index('books', 'author')
         records = self.db.select_records('books', author='Author1')
         self.assertEqual(len(records), 1)
+
+    def test_create_index_from_missing_table(self):
+        with self.assertRaises(TableNotFoundError):
+            self.db.create_index('nonexistent', 'author')
+
+    def test_list_tables_empty(self):
+        self.assertEqual(self.db.list_tables(), [])
 
 
 if __name__ == '__main__':
