@@ -13,5 +13,13 @@ class DuplicateTableError(DatabaseError):
     def __init__(self, table_name):
         super().__init__(f"Таблица '{table_name}' уже существует")
 
-class ValidationError(DatabaseError):
+class MissingColumnError(DatabaseError):
+    def __init__(self, column_name):
+        super().__init__(f"Отсутствует поле '{column_name}'")
+
+class UnknownColumnError(DatabaseError):
+    def __init__(self, column_name):
+        super().__init__(f"Поле '{column_name}' не определено")
+
+class InvalidStorageDataError(DatabaseError):
     pass
