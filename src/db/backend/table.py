@@ -26,20 +26,24 @@ class Table:
             self.indexes[column_name][value].append(record['id'])
 
     def insert_record(self, record):
+        # Проверяем, что все обязательные поля присутствуют
         for col in self.columns:
             if col not in record:
                 raise MissingColumnError(col)
 
+        # Проверяем, что нет лишних полей
         for col in record:
             if col not in self.columns and col != 'id':
                 raise UnknownColumnError(col)
 
+        # Если id нет, генерируем новый
         if 'id' not in record:
             record = {'id': self.next_id, **record}
             self.next_id += 1
 
         self.records.append(record.copy())
 
+        # Обновляем индексы
         for column_name in self.indexes:
             value = record.get(column_name)
             if value not in self.indexes[column_name]:
