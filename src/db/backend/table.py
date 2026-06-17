@@ -123,3 +123,19 @@ class Table:
 
     def count(self):
         return len(self.records)
+
+    def sort_records(self, column_name, order='asc'):
+        if column_name not in self.columns:
+            raise UnknownColumnError(column_name)
+        records_copy = [record.copy() for record in self.records]
+        try:
+            records_copy.sort(
+                key=lambda x: x.get(column_name, ''),
+                reverse=(order == 'desc')
+            )
+        except TypeError:
+            records_copy.sort(
+                key=lambda x: str(x.get(column_name, '')),
+                reverse=(order == 'desc')
+            )
+        return records_copy

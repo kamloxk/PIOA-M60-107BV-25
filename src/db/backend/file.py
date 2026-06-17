@@ -50,6 +50,10 @@ class FileDatabase:
             if file.is_file()
         ]
 
+    def sort_records(self, table_name, column_name, order='asc'):
+        table = self._load_table(table_name)
+        return table.sort_records(column_name, order)
+
     def _table_exists(self, table_name):
         return self._get_table_path(table_name).exists()
 

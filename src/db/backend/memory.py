@@ -38,3 +38,8 @@ class MemoryDatabase:
 
     def list_tables(self):
         return list(self.tables.keys())
+
+    def sort_records(self, table_name, column_name, order='asc'):
+        if table_name not in self.tables:
+            raise TableNotFoundError(table_name)
+        return self.tables[table_name].sort_records(column_name, order)

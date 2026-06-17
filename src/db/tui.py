@@ -262,13 +262,7 @@ class LibraryApp:
         order = 'asc' if order_choice == 1 else 'desc'
 
         try:
-            books = self.db.select_records('books')
-            if sort_by and books:
-                reverse = order == 'desc'
-                try:
-                    books.sort(key=lambda b: b.get(sort_by, ''), reverse=reverse)
-                except TypeError:
-                    books.sort(key=lambda b: str(b.get(sort_by, '')), reverse=reverse)
+            books = self.db.sort_records('books', sort_by, order)
             self.print_books(books)
         except TableNotFoundError as e:
             print(f"Ошибка: {e}")
