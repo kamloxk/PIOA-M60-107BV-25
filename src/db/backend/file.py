@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 from .errors import TableNotFoundError, DuplicateTableError, InvalidStorageDataError
 from .table import Table
+from .database import Database
 
 
-class FileDatabase:
+class FileDatabase(Database):
     def __init__(self, directory="data"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)

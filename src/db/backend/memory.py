@@ -1,8 +1,9 @@
 from .errors import TableNotFoundError, DuplicateTableError
 from .table import Table
+from .database import Database
 
 
-class MemoryDatabase:
+class MemoryDatabase(Database):
     def __init__(self):
         self.tables = {}
 
