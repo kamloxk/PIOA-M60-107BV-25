@@ -36,8 +36,15 @@ class Table:
             if col not in self.columns and col != 'id':
                 raise UnknownColumnError(col)
 
-        # Если id нет, генерируем новый
-        if 'id' not in record:
+        # Если id задан явно — проверяем уникальность и обновляем next_id
+        if 'id' in record:
+            for existing in self.records:
+                if existing.get('id') == record['id']:
+                    raise ValueError(f"Запись с ID {record['id']} уже существует")
+            if record['id'] >= self.next_id:
+                self.next_id = record['id'] + 1
+        else:
+            # Если id не задан — генерируем новый
             record = {'id': self.next_id, **record}
             self.next_id += 1
 
