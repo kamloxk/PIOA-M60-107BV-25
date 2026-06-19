@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from .errors import TableNotFoundError, DuplicateTableError, InvalidStorageDataError
 from .table import Table
@@ -68,18 +69,25 @@ class FileDatabase(Database):
                 data = json.load(file)
         except json.JSONDecodeError:
             raise InvalidStorageDataError("Файл содержит некорректный JSON")
+        except OSError as e:
+            # ИСПРАВЛЕНИЕ: Обработка ошибок ввода-вывода
+            raise InvalidStorageDataError(f"Ошибка чтения файла: {e}")
 
         return self._deserialize_table(data)
 
     def _save_table(self, table_name, table):
         table_path = self._get_table_path(table_name)
-        with table_path.open("w", encoding="utf-8") as file:
-            json.dump(
-                self._serialize_table(table),
-                file,
-                ensure_ascii=False,
-                indent=2,
-            )
+        try:
+            with table_path.open("w", encoding="utf-8") as file:
+                json.dump(
+                    self._serialize_table(table),
+                    file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except OSError as e:
+            # ИСПРАВЛЕНИЕ: Обработка ошибок записи
+            raise InvalidStorageDataError(f"Ошибка записи файла: {e}")
 
     def _get_table_path(self, table_name):
         return self.directory / f"{table_name}.json"
@@ -89,7 +97,8 @@ class FileDatabase(Database):
             "columns": list(table.columns),
             "records": [record.copy() for record in table.records],
             "next_id": table.next_id,
-            "indexes": table.indexes
+            # Сохраняем только ИМЕНА проиндексированных колонок, чтобы пересоздать индексы при загрузке
+            "indexed_columns": list(table.indexes.keys())
         }
 
     def _deserialize_table(self, data):
@@ -99,8 +108,13 @@ class FileDatabase(Database):
         columns = tuple(data["columns"])
         records = data.get("records", [])
         table = Table(columns, records)
+        
         if "next_id" in data:
             table.next_id = data["next_id"]
-        if "indexes" in data:
-            table.indexes = data["indexes"]
+        
+        # ИСПРАВЛЕНИЕ: Пересоздаем индексы из записей, чтобы восстановить типы данных (int/str)
+        indexed_columns = data.get("indexed_columns", [])
+        for col_name in indexed_columns:
+            table.create_index(col_name)
+
         return table

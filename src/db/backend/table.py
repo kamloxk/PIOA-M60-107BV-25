@@ -26,24 +26,32 @@ class Table:
             self.indexes[column_name][value].append(record['id'])
 
     def insert_record(self, record):
-        # Проверяем, что все обязательные поля присутствуют
+        # 1. Проверка обязательных полей
         for col in self.columns:
             if col not in record:
                 raise MissingColumnError(col)
 
-        # Проверяем, что нет лишних полей
+        # 2. Проверка лишних полей
         for col in record:
             if col not in self.columns and col != 'id':
                 raise UnknownColumnError(col)
 
-        # Если id нет, генерируем новый
-        if 'id' not in record:
+        # 3. Обработка ID (ИСПРАВЛЕНИЕ: обновляем next_id при явном ID)
+        if 'id' in record:
+            # Проверяем уникальность
+            if any(r.get('id') == record['id'] for r in self.records):
+                raise ValueError(f"Запись с ID {record['id']} уже существует")
+            # Если ID больше текущего next_id, обновляем next_id
+            if record['id'] >= self.next_id:
+                self.next_id = record['id'] + 1
+        else:
+            # Если ID нет, генерируем
             record = {'id': self.next_id, **record}
             self.next_id += 1
 
         self.records.append(record.copy())
 
-        # Обновляем индексы
+        # 4. Обновление индексов
         for column_name in self.indexes:
             value = record.get(column_name)
             if value not in self.indexes[column_name]:
@@ -131,6 +139,11 @@ class Table:
     def sort_records(self, column_name, order='asc'):
         if column_name not in self.columns:
             raise UnknownColumnError(column_name)
+        
+        # ИСПРАВЛЕНИЕ: Явная валидация параметра order
+        if order not in ('asc', 'desc'):
+            raise ValueError("Параметр order должен быть 'asc' или 'desc'")
+
         records_copy = [record.copy() for record in self.records]
         try:
             records_copy.sort(

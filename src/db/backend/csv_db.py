@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 from pathlib import Path
 from .errors import TableNotFoundError, DuplicateTableError, InvalidStorageDataError
 from .table import Table
@@ -71,6 +72,8 @@ class CsvDatabase(Database):
                 schema = json.load(file)
         except json.JSONDecodeError:
             raise InvalidStorageDataError("Файл схемы содержит некорректный JSON")
+        except OSError as e:
+            raise InvalidStorageDataError(f"Ошибка чтения схемы: {e}")
 
         try:
             with csv_path.open("r", encoding="utf-8", newline="") as file:
@@ -89,32 +92,41 @@ class CsvDatabase(Database):
                     records.append(record)
         except csv.Error:
             raise InvalidStorageDataError("CSV файл содержит ошибки")
+        except OSError as e:
+            raise InvalidStorageDataError(f"Ошибка чтения CSV: {e}")
 
         table = Table(tuple(schema['columns']), records)
         if 'next_id' in schema:
             table.next_id = schema['next_id']
-        if 'indexes' in schema:
-            table.indexes = schema['indexes']
+        
+        # ИСПРАВЛЕНИЕ: Пересоздаем индексы, чтобы типы ключей (int) совпадали с записями
+        indexed_columns = schema.get('indexes', {})
+        for col_name in indexed_columns.keys():
+            table.create_index(col_name)
+            
         return table
 
     def _save_table(self, table_name, table):
         csv_path = self._get_csv_path(table_name)
         schema_path = self._get_schema_path(table_name)
 
-        schema = {
-            'columns': list(table.columns),
-            'next_id': table.next_id,
-            'indexes': table.indexes
-        }
+        try:
+            schema = {
+                'columns': list(table.columns),
+                'next_id': table.next_id,
+                'indexes': {col: [] for col in table.indexes.keys()} # Сохраняем имена колонок индексов
+            }
 
-        with schema_path.open("w", encoding="utf-8") as file:
-            json.dump(schema, file, ensure_ascii=False, indent=2)
+            with schema_path.open("w", encoding="utf-8") as file:
+                json.dump(schema, file, ensure_ascii=False, indent=2)
 
-        with csv_path.open("w", encoding="utf-8", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=['id'] + list(table.columns))
-            writer.writeheader()
-            for record in table.records:
-                writer.writerow(record)
+            with csv_path.open("w", encoding="utf-8", newline="") as file:
+                writer = csv.DictWriter(file, fieldnames=['id'] + list(table.columns))
+                writer.writeheader()
+                for record in table.records:
+                    writer.writerow(record)
+        except OSError as e:
+            raise InvalidStorageDataError(f"Ошибка записи CSV/схемы: {e}")
 
     def _get_csv_path(self, table_name):
         return self.directory / f"{table_name}.csv"
